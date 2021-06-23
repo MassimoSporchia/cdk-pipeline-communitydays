@@ -1,0 +1,13 @@
+version: 0.0
+os: linux
+files:
+  - source: binaries
+    destination: /webapps/helloworld/
+  - source: scripts/helloworld.service
+    destination: /etc/systemd/system
+  - source: scripts/starthello.sh
+    destination: /var/starthello.sh  
+hooks:
+  AfterInstall:
+    - location: scripts/StartHelloWorld.sh
+      timeout: 30

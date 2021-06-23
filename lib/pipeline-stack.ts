@@ -1,10 +1,11 @@
+import { MyAppStage } from "./myapp-stage";
 import { Stack, Construct, StackProps } from "@aws-cdk/core";
 import { CdkPipeline, SimpleSynthAction } from "@aws-cdk/pipelines";
-import {Repository } from '@aws-cdk/aws-codecommit'
+import { Repository } from "@aws-cdk/aws-codecommit";
 
 import * as codepipeline from "@aws-cdk/aws-codepipeline";
 import * as codepipeline_actions from "@aws-cdk/aws-codepipeline-actions";
-import * as codebuild from "@aws-cdk/aws-codebuild"
+import * as codebuild from "@aws-cdk/aws-codebuild";
 import { CodeBuildAction } from "@aws-cdk/aws-codepipeline-actions";
 
 export class PipelineStack extends Stack {
@@ -16,47 +17,47 @@ export class PipelineStack extends Stack {
     const applicationCode = new codepipeline.Artifact();
 
     const dotnetBuild = new codebuild.PipelineProject(this, "DotNetBuild", {
-        buildSpec: codebuild.BuildSpec.fromObject({
-          version: "0.2",
-          phases: {
-            install: {
-              commands: [
-                "rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm",
-                "yum install -y dotnet-sdk-5.0",
-                "npm install",
-              ],
-            },
-            build: {
-              commands: [
-                "cd app/dotnet-core-tutorial/",
-                "/usr/share/dotnet/dotnet publish -c Release -r linux-x64 -p:PublishReadyToRun=true",
-                "cd ../..",
-                "npm run build",
-                "npx cdk synth -- -o dist",
-                "cd app/dotnet-core-tutorial/",
-                "mkdir binaries",
-                "cp -r bin/Release/netcoreapp5.0/linux-x64/publish/* binaries",
-              ],
-            },
+      buildSpec: codebuild.BuildSpec.fromObject({
+        version: "0.2",
+        phases: {
+          install: {
+            commands: [
+              "rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm",
+              "yum install -y dotnet-sdk-5.0",
+              "npm install",
+            ],
           },
-          artifacts: {
-            "secondary-artifacts": {
-              Artifact_Build_DotNet_Build_1: {
-                "base-directory": "cdk.out",
-                files: ["**/*"],
-              },
-              Artifact_Build_DotNet_Build_2: {
-                files: ["binaries/**/*", "scripts/**/*", "appspec.yml"],
-                "base-directory": "app/dotnet-core-tutorial/",
-                "discard-paths": "no",
-              },
-            },
+          build: {
+            commands: [
+              "cd app/dotnet-core-tutorial/",
+              "/usr/share/dotnet/dotnet publish -c Release -r linux-x64 -p:PublishReadyToRun=true",
+              "cd ../..",
+              "npm run build",
+              "npx cdk synth -- -o dist",
+              "cd app/dotnet-core-tutorial/",
+              "mkdir binaries",
+              "cp -r bin/Release/netcoreapp5.0/linux-x64/publish/* binaries",
+            ],
           },
-        }),
-        environment: {
-          buildImage: codebuild.LinuxBuildImage.AMAZON_LINUX_2_3,
         },
-      });
+        artifacts: {
+          "secondary-artifacts": {
+            Artifact_Build_DotNet_Build_1: {
+              "base-directory": "cdk.out",
+              files: ["**/*"],
+            },
+            Artifact_Build_DotNet_Build_2: {
+              files: ["binaries/**/*", "scripts/**/*", "appspec.yml"],
+              "base-directory": "app/dotnet-core-tutorial/",
+              "discard-paths": "no",
+            },
+          },
+        },
+      }),
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.AMAZON_LINUX_2_3,
+      },
+    });
 
     const pipeline = new CdkPipeline(this, "Pipeline", {
       pipelineName: "MyAppPipeline",
@@ -67,17 +68,17 @@ export class PipelineStack extends Stack {
         output: sourceArtifact,
         trigger: codepipeline_actions.CodeCommitTrigger.EVENTS,
         repository: Repository.fromRepositoryName(this, "repository", "aspnet"),
-        branch: "master"
+        branch: "master",
       }),
 
       synthAction: new CodeBuildAction({
-          actionName: "DotNet_Build",
-          project: dotnetBuild,
-          input: sourceArtifact,
-          outputs: [cloudAssemblyArtifact, applicationCode]
-      })
+        actionName: "DotNet_Build",
+        project: dotnetBuild,
+        input: sourceArtifact,
+        outputs: [cloudAssemblyArtifact, applicationCode],
+      }),
     });
 
-    
+    pipeline.addApplicationStage(new MyAppStage(this, "Prod"));
   }
 }
